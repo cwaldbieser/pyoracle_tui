@@ -9,11 +9,13 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 
 import logzero
 from logzero import logger
+from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer
-from textual.widgets import Button, Footer, Header, TextArea, Select
+from textual.widgets import Button, Footer, Header, Select, TextArea
 
 from sqltui.messages import MessageWidget
+from sqltui.oracle import exec_oracle_query
 
 
 class SqlApp(App):
@@ -38,7 +40,7 @@ class SqlApp(App):
         options = []
         for conn_key, connection in connections.items():
             options.append((connection["desc"], conn_key))
-        yield Select(options)
+        yield Select(options, id="connection-selection")
         yield ScrollableContainer(
             TextArea.code_editor("", id="query-text", theme="dracula", language="sql"),
             id="query-text-area",
@@ -48,6 +50,10 @@ class SqlApp(App):
 
     def on_mount(self):
         self.screen.styles.border = ("heavy", "white")
+
+    def on_button_pressed(self, event):
+        if event.button.id == "query-execute":
+            self.execute_query()
 
     def action_about(self):
         message = "Oracle SQL TUI by Carl Waldbieser 2025"
@@ -73,6 +79,25 @@ class SqlApp(App):
                 textarea.text = tf.read()
         finally:
             os.unlink(tfname)
+
+    @work(exclusive=True, thread=True)
+    def execute_query(self):
+        textarea = self.query_one("#query-text")
+        sql = textarea.text
+        conn_selector = self.query_one("#connection-selection")
+        if conn_selector.is_blank():
+            return
+        conn_key = conn_selector.value
+        connections = self.config["connections"]
+        connection = connections[conn_key]
+        host = connection["host"]
+        database = connection["database"]
+        user = connection["user"]
+        passwd = connection["passwd"]
+        exec_oracle_query(
+            host=host, db_name=database, user=user, passwd=passwd, sql=sql
+        )
+        self.call_from_thread(self.show_message, "Query complete.")
 
     def show_message(self, message, seconds=5.0):
         """
