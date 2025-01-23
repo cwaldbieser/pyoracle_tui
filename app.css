@@ -1,0 +1,55 @@
+Screen {
+    layers: application messages;
+}
+
+ButtonRow {
+    align: center middle;
+}
+
+LabeledInput {
+    layout: horizontal;
+}
+
+LabeledInput Label {
+    width: 1fr;
+}
+
+LabeledInput Input {
+    width: 4fr;
+}
+
+.button-bar {
+    align-horizontal: center;
+    layout: horizontal;
+    dock: bottom;
+}
+
+.button-bar Button {
+    margin: 0;
+    margin-left: 1;
+    margin-right: 1;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Messages */
+MessageWidget {
+    layer: messages;
+    align: center middle;
+    width: 100%;
+    height: 100%;
+    visibility: hidden;
+}
+
+MessageBox {
+    layer: messages;
+    width: 60%;
+    height: 5;
+    color: white;
+    background: blue;
+    border: solid white;
+    content-align: center middle;
+    visibility: visible;
+}
