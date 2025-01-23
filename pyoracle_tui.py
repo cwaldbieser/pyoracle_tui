@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import csv
 import os
 import pathlib
 import subprocess
@@ -12,7 +13,7 @@ from logzero import logger
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer
-from textual.widgets import Button, Footer, Header, Select, TextArea
+from textual.widgets import Button, DataTable, Footer, Header, Select, TextArea
 
 from sqltui.messages import MessageWidget
 from sqltui.oracle import exec_oracle_query
@@ -42,11 +43,18 @@ class SqlApp(App):
             options.append((connection["desc"], conn_key))
         yield Select(options, id="connection-selection")
         yield ScrollableContainer(
-            TextArea.code_editor("", id="query-text", theme="dracula", language="sql"),
+            TextArea.code_editor(
+                "",
+                id="query-text",
+                theme="dracula",
+                language="sql",
+                tab_behavior="focus",
+            ),
             id="query-text-area",
         )
-        with Horizontal(id="query-buttonbar"):
+        with Horizontal(id="query-buttonbar", classes="button-bar"):
             yield Button("Execute", id="query-execute")
+        yield DataTable(id="data-table")
 
     def on_mount(self):
         self.screen.styles.border = ("heavy", "white")
@@ -94,10 +102,28 @@ class SqlApp(App):
         database = connection["database"]
         user = connection["user"]
         passwd = connection["passwd"]
+        self.call_from_thread(self.toggle_button_state)
         exec_oracle_query(
             host=host, db_name=database, user=user, passwd=passwd, sql=sql
         )
-        self.call_from_thread(self.show_message, "Query complete.")
+        self.call_from_thread(self.populate_table)
+
+        self.call_from_thread(self.toggle_button_state)
+        # self.call_from_thread(self.show_message, "Query complete.")
+
+    def populate_table(self):
+        table = self.query_one("#data-table")
+        table.clear(columns=True)
+        with open("/tmp/results.csv", "r", newline="") as f:
+            reader = csv.reader(f)
+            headers = next(reader)
+            table.add_columns(*headers)
+            rows = [row for row in reader]
+            table.add_rows(rows)
+
+    def toggle_button_state(self):
+        button = self.query_one("#query-execute")
+        button.disabled = not button.disabled
 
     def show_message(self, message, seconds=5.0):
         """

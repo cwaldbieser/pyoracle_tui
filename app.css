@@ -2,26 +2,10 @@ Screen {
     layers: application messages;
 }
 
-ButtonRow {
-    align: center middle;
-}
-
-LabeledInput {
-    layout: horizontal;
-}
-
-LabeledInput Label {
-    width: 1fr;
-}
-
-LabeledInput Input {
-    width: 4fr;
-}
-
 .button-bar {
     align-horizontal: center;
     layout: horizontal;
-    dock: bottom;
+    height: 10%;
 }
 
 .button-bar Button {
@@ -32,6 +16,11 @@ LabeledInput Input {
 
 .hidden {
     display: none;
+}
+
+#data-table {
+    border: solid white;
+    height: 50%;
 }
 
 /* Messages */
