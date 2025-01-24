@@ -25,6 +25,7 @@ class SqlApp(App):
         ("?", "about()", "About"),
         ("f2", "reload_config()", "Reload config"),
         ("f3", "edit", "Edit query"),
+        ("X", "export_to_visidata()", "Export to VisiData"),
     ]
     CSS_PATH = "app.css"
     TITLE = "Oracle SQL TUI"
@@ -70,6 +71,14 @@ class SqlApp(App):
     def action_reload_config(self):
         app.config = load_config()
         self.show_message("Configuration reloaded.")
+
+    def action_export_to_visidata(self):
+        with self.app.suspend():
+            logzero.loglevel(logzero.CRITICAL)
+            spreadsheet = os.environ.get("SPREADSHEET", "visidata")
+            fname = "/tmp/results.csv"
+            subprocess.call([spreadsheet, fname])
+            logzero.loglevel(logzero.DEBUG)
 
     def action_edit(self):
         textarea = self.query_one("#query-text")
