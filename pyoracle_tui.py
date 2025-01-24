@@ -16,7 +16,7 @@ from textual.containers import Horizontal, ScrollableContainer
 from textual.widgets import Button, DataTable, Footer, Header, Select, TextArea
 
 from sqltui.messages import MessageWidget
-from sqltui.oracle import exec_oracle_query
+from sqltui.oracle import exec_oracle_query, DatabaseError
 
 
 class SqlApp(App):
@@ -25,7 +25,7 @@ class SqlApp(App):
         ("?", "about()", "About"),
         ("f2", "reload_config()", "Reload config"),
         ("f3", "edit", "Edit query"),
-        ("X", "export_to_visidata()", "Export to VisiData"),
+        ("x", "export_to_visidata()", "Export to Spreadsheet"),
     ]
     CSS_PATH = "app.css"
     TITLE = "Oracle SQL TUI"
@@ -62,6 +62,8 @@ class SqlApp(App):
 
     def on_button_pressed(self, event):
         if event.button.id == "query-execute":
+            self.clear_table()
+            self.toggle_button_state()
             self.execute_query()
 
     def action_about(self):
@@ -76,7 +78,7 @@ class SqlApp(App):
         with self.app.suspend():
             logzero.loglevel(logzero.CRITICAL)
             spreadsheet = os.environ.get("SPREADSHEET", "visidata")
-            fname = "/tmp/results.csv"
+            fname = self.get_results_file()
             subprocess.call([spreadsheet, fname])
             logzero.loglevel(logzero.DEBUG)
 
@@ -97,12 +99,19 @@ class SqlApp(App):
         finally:
             os.unlink(tfname)
 
+    def get_results_file(self):
+        results_file = self.config.get("app", {}).get(
+            "results_file", "/tmp/results.csv"
+        )
+        return results_file
+
     @work(exclusive=True, thread=True)
     def execute_query(self):
         textarea = self.query_one("#query-text")
         sql = textarea.text
         conn_selector = self.query_one("#connection-selection")
         if conn_selector.is_blank():
+            self.call_from_thread(self.toggle_button_state)
             return
         conn_key = conn_selector.value
         connections = self.config["connections"]
@@ -111,19 +120,26 @@ class SqlApp(App):
         database = connection["database"]
         user = connection["user"]
         passwd = connection["passwd"]
-        self.call_from_thread(self.toggle_button_state)
-        exec_oracle_query(
-            host=host, db_name=database, user=user, passwd=passwd, sql=sql
-        )
+        try:
+            exec_oracle_query(
+                host=host, db_name=database, user=user, passwd=passwd, sql=sql
+            )
+        except DatabaseError as ex:
+            self.call_from_thread(self.show_message, f"Database error: {ex}")
+            self.call_from_thread(self.toggle_button_state)
+            return
         self.call_from_thread(self.populate_table)
 
         self.call_from_thread(self.toggle_button_state)
-        # self.call_from_thread(self.show_message, "Query complete.")
+
+    def clear_table(self):
+        table = self.query_one("#data-table")
+        table.clear(columns=True)
 
     def populate_table(self):
         table = self.query_one("#data-table")
-        table.clear(columns=True)
-        with open("/tmp/results.csv", "r", newline="") as f:
+        results_file = self.get_results_file()
+        with open(results_file, "r", newline="") as f:
             reader = csv.reader(f)
             headers = next(reader)
             table.add_columns(*headers)

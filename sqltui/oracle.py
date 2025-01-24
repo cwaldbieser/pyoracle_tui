@@ -1,5 +1,8 @@
 import csv
+
 import oracledb
+
+DatabaseError = oracledb.DatabaseError
 
 
 def exec_oracle_query(host, db_name, user, passwd, sql, port=1521):
