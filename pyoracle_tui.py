@@ -13,10 +13,11 @@ from logzero import logger
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer
-from textual.widgets import Button, DataTable, Footer, Header, Select, TextArea
+from textual.widgets import (Button, DataTable, Footer, Header, Select,
+                             TabbedContent, TabPane, TextArea)
 
 from sqltui.messages import MessageWidget
-from sqltui.oracle import exec_oracle_query, DatabaseError
+from sqltui.oracle import DatabaseError, exec_oracle_query
 
 
 class SqlApp(App):
@@ -43,25 +44,28 @@ class SqlApp(App):
         for conn_key, connection in connections.items():
             options.append((connection["desc"], conn_key))
         yield Select(options, id="connection-selection")
-        yield ScrollableContainer(
-            TextArea.code_editor(
-                "",
-                id="query-text",
-                theme="dracula",
-                language="sql",
-                tab_behavior="focus",
-            ),
-            id="query-text-area",
-        )
-        with Horizontal(id="query-buttonbar", classes="button-bar"):
-            yield Button("Execute", id="query-execute")
-        yield DataTable(id="data-table")
+        tab_config = self.config["tab"]
+        with TabbedContent(id="tabbed-content"):
+            for tab_index, tab_config in tab_config.items():
+                with TabPane(tab_index, id=f"pane-{tab_index}"):
+                    yield ScrollableContainer(
+                        TextArea.code_editor(
+                            "",
+                            id=f"query-text-{tab_index}",
+                            theme="dracula",
+                            language="sql",
+                            tab_behavior="focus",
+                        ),
+                    )
+                    with Horizontal(classes="button-bar"):
+                        yield Button("Execute", id=f"query-execute-{tab_index}")
+                    yield DataTable(id=f"data-table-{tab_index}", classes="data-table")
 
     def on_mount(self):
         self.screen.styles.border = ("heavy", "white")
 
     def on_button_pressed(self, event):
-        if event.button.id == "query-execute":
+        if event.button.id.startswith("query-execute"):
             self.clear_table()
             self.toggle_button_state()
             self.execute_query()
@@ -83,7 +87,8 @@ class SqlApp(App):
             logzero.loglevel(logzero.DEBUG)
 
     def action_edit(self):
-        textarea = self.query_one("#query-text")
+        tab_index = self.get_tab_index()
+        textarea = self.query_one(f"#query-text-{tab_index}")
         EDITOR = os.environ.get("EDITOR", "vim")
         logger.debug(f"EDITOR is: {EDITOR}")
         with tempfile.NamedTemporaryFile("r+", suffix=".sql", delete=False) as tf:
@@ -100,14 +105,16 @@ class SqlApp(App):
             os.unlink(tfname)
 
     def get_results_file(self):
-        results_file = self.config.get("app", {}).get(
-            "results_file", "/tmp/results.csv"
+        tab_index = self.get_tab_index()
+        results_file = self.config["tab"][tab_index].get(
+            "results_file", f"/tmp/results.{tab_index}.csv"
         )
         return results_file
 
     @work(exclusive=True, thread=True)
     def execute_query(self):
-        textarea = self.query_one("#query-text")
+        tab_index = self.get_tab_index()
+        textarea = self.query_one(f"#query-text-{tab_index}")
         sql = textarea.text
         conn_selector = self.query_one("#connection-selection")
         if conn_selector.is_blank():
@@ -122,7 +129,12 @@ class SqlApp(App):
         passwd = connection["passwd"]
         try:
             exec_oracle_query(
-                host=host, db_name=database, user=user, passwd=passwd, sql=sql
+                host=host,
+                db_name=database,
+                user=user,
+                passwd=passwd,
+                sql=sql,
+                fname=self.get_results_file(),
             )
         except DatabaseError as ex:
             self.call_from_thread(self.show_message, f"Database error: {ex}")
@@ -132,12 +144,21 @@ class SqlApp(App):
 
         self.call_from_thread(self.toggle_button_state)
 
+    def get_tab_index(self):
+        tc = self.query_one("#tabbed-content")
+        pane_id = tc.active
+        pos = len("pane-")
+        tab_index = pane_id[pos:]
+        return tab_index
+
     def clear_table(self):
-        table = self.query_one("#data-table")
+        tab_index = self.get_tab_index()
+        table = self.query_one(f"#data-table-{tab_index}")
         table.clear(columns=True)
 
     def populate_table(self):
-        table = self.query_one("#data-table")
+        tab_index = self.get_tab_index()
+        table = self.query_one(f"#data-table-{tab_index}")
         results_file = self.get_results_file()
         with open(results_file, "r", newline="") as f:
             reader = csv.reader(f)
@@ -147,7 +168,8 @@ class SqlApp(App):
             table.add_rows(rows)
 
     def toggle_button_state(self):
-        button = self.query_one("#query-execute")
+        tab_index = self.get_tab_index()
+        button = self.query_one(f"#query-execute-{tab_index}")
         button.disabled = not button.disabled
 
     def show_message(self, message, seconds=5.0):

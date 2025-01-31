@@ -5,13 +5,12 @@ import oracledb
 DatabaseError = oracledb.DatabaseError
 
 
-def exec_oracle_query(host, db_name, user, passwd, sql, port=1521):
+def exec_oracle_query(host, db_name, user, passwd, sql, fname, port=1521):
     """
     Execute an oracle query and write the results to CSV.
     """
     conn_str = make_oracle_conn_string(host, port, db_name, user, passwd)
     oracledb.init_oracle_client()
-    fname = "/tmp/results.csv"
     batch_size = 200
     with oracledb.connect(conn_str) as db, open(fname, "w", newline="") as f:
         cursor = db.cursor()

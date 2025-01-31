@@ -2,6 +2,10 @@ Screen {
     layers: application messages;
 }
 
+TabbedContent {
+    height: 90%;
+}
+
 .button-bar {
     align-horizontal: center;
     layout: horizontal;
@@ -18,7 +22,7 @@ Screen {
     display: none;
 }
 
-#data-table {
+.data-table {
     border: solid white;
     height: 50%;
 }
