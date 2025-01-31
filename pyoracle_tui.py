@@ -26,7 +26,12 @@ class SqlApp(App):
         ("?", "about()", "About"),
         ("f2", "reload_config()", "Reload config"),
         ("f3", "edit", "Edit query"),
-        ("x", "export_to_visidata()", "Export to Spreadsheet"),
+        ("x", "export_to_spreadsheet()", "Export to Spreadsheet"),
+        ("1", "switch_to_tab('1')", "Tab 1"),
+        ("2", "switch_to_tab('2')", "Tab 2"),
+        ("3", "switch_to_tab('3')", "Tab 3"),
+        ("4", "switch_to_tab('4')", "Tab 4"),
+        ("5", "switch_to_tab('5')", "Tab 5"),
     ]
     CSS_PATH = "app.css"
     TITLE = "Oracle SQL TUI"
@@ -78,7 +83,7 @@ class SqlApp(App):
         app.config = load_config()
         self.show_message("Configuration reloaded.")
 
-    def action_export_to_visidata(self):
+    def action_export_to_spreadsheet(self):
         with self.app.suspend():
             logzero.loglevel(logzero.CRITICAL)
             spreadsheet = os.environ.get("SPREADSHEET", "visidata")
@@ -91,18 +96,25 @@ class SqlApp(App):
         textarea = self.query_one(f"#query-text-{tab_index}")
         EDITOR = os.environ.get("EDITOR", "vim")
         logger.debug(f"EDITOR is: {EDITOR}")
-        with tempfile.NamedTemporaryFile("r+", suffix=".sql", delete=False) as tf:
-            tf.write(textarea.text)
-            tfname = tf.name
-        try:
-            with self.app.suspend():
-                logzero.loglevel(logzero.CRITICAL)
-                subprocess.call([EDITOR, tfname])
-            logzero.loglevel(logzero.DEBUG)
-            with open(tfname, "r") as tf:
-                textarea.text = tf.read()
-        finally:
-            os.unlink(tfname)
+        fname = self.get_query_file()
+        with open(fname, "w") as f:
+            f.write(textarea.text)
+        with self.app.suspend():
+            logzero.loglevel(logzero.CRITICAL)
+            subprocess.call([EDITOR, fname])
+        logzero.loglevel(logzero.DEBUG)
+        with open(fname, "r") as f:
+            textarea.text = f.read()
+
+    def action_switch_to_tab(self, tab_index):
+        self.get_child_by_type(TabbedContent).active = f"pane-{tab_index}"
+
+    def get_query_file(self):
+        tab_index = self.get_tab_index()
+        query_file = self.config["tab"][tab_index].get(
+            "sql_file", f"/tmp/query.{tab_index}.sql"
+        )
+        return query_file
 
     def get_results_file(self):
         tab_index = self.get_tab_index()
