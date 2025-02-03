@@ -4,7 +4,6 @@ import os
 import pathlib
 import subprocess
 import sys
-import tempfile
 import tomllib
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 

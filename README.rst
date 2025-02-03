@@ -19,10 +19,27 @@ e.g.
 
    LD_LIBRARY_PATH=/home/myuser/.local/opt/oracle/instantclient_21.1:"$LD_LIBRARY_PATH"
 
+Confguring Tabs
+---------------
+
+In `~/.config/pyoracle_tui/pyoracle_tui.toml`.
+Basic structure is:
+
+.. code-block:: toml
+
+    [tab.1]
+    sql_file = "/tmp/pyoracle.01.sql"
+    results_file = "/tmp/pyoracle-results.01.csv"
+
+    [tab.2]
+    sql_file = "/tmp/pyoracle.02.sql"
+    results_file = "/tmp/pyoracle-results.02.csv"
+
+
 Configuring connections
 -----------------------
 
-Create `~/.config/pyoracle_tui/pyoracle_tui.toml`.
+In `~/.config/pyoracle_tui/pyoracle_tui.toml`.
 Basic structure is:
 
 .. code-block:: toml
