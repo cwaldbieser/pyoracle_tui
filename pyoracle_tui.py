@@ -9,11 +9,12 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 
 import logzero
 from logzero import logger
-from textual import work
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer
 from textual.widgets import (Button, DataTable, Footer, Header, Select,
                              TabbedContent, TabPane, TextArea)
+from textual.events import DescendantBlur
 
 from sqltui.messages import MessageWidget
 from sqltui.oracle import DatabaseError, exec_oracle_query
@@ -74,6 +75,29 @@ class SqlApp(App):
             self.toggle_button_state()
             self.execute_query()
 
+    def on_tabbed_content_tab_activated(self, event):
+        fname = self.get_query_file()
+        if not os.path.exists(fname):
+            return
+        with open(fname, "r") as f:
+            data = f.read()
+        tab_index = self.get_tab_index()
+        textarea = self.query_one(f"#query-text-{tab_index}")
+        textarea.text = data
+
+    @on(DescendantBlur)
+    async def handle_blur(self, event) -> None:
+        widget = event.widget
+        if widget is not None:
+            widget_id = widget.id
+            if widget_id is not None:
+                if widget_id.startswith("query-text-"):
+                    pos = len("query-text-")
+                    tab_index = widget_id[pos:]
+                    fname = self.get_query_file(tab_index=tab_index)
+                    with open(fname, "w") as f:
+                        f.write(widget.text)
+
     def action_about(self):
         message = "Oracle SQL TUI by Carl Waldbieser 2025"
         self.show_message(message)
@@ -108,8 +132,9 @@ class SqlApp(App):
     def action_switch_to_tab(self, tab_index):
         self.get_child_by_type(TabbedContent).active = f"pane-{tab_index}"
 
-    def get_query_file(self):
-        tab_index = self.get_tab_index()
+    def get_query_file(self, tab_index=None):
+        if tab_index is None:
+            tab_index = self.get_tab_index()
         query_file = self.config["tab"][tab_index].get(
             "sql_file", f"/tmp/query.{tab_index}.sql"
         )
