@@ -12,9 +12,9 @@ from logzero import logger
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, ScrollableContainer
+from textual.events import DescendantBlur
 from textual.widgets import (Button, DataTable, Footer, Header, Select,
                              TabbedContent, TabPane, TextArea)
-from textual.events import DescendantBlur
 
 from sqltui.messages import MessageWidget
 from sqltui.oracle import DatabaseError, exec_oracle_query
@@ -26,6 +26,7 @@ class SqlApp(App):
         ("?", "about()", "About"),
         ("f2", "reload_config()", "Reload config"),
         ("f3", "edit", "Edit query"),
+        ("e", "execute_query()", "Execute query"),
         ("x", "export_to_spreadsheet()", "Export to Spreadsheet"),
         ("1", "switch_to_tab('1')", "Tab 1"),
         ("2", "switch_to_tab('2')", "Tab 2"),
@@ -105,6 +106,11 @@ class SqlApp(App):
     def action_reload_config(self):
         app.config = load_config()
         self.show_message("Configuration reloaded.")
+
+    def action_execute_query(self):
+        self.clear_table()
+        self.toggle_button_state()
+        self.execute_query()
 
     def action_export_to_spreadsheet(self):
         with self.app.suspend():
