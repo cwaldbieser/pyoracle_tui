@@ -69,5 +69,5 @@ Example Commandline
 
 .. code-block:: shell
 
-   $ pipenv run textual ./pyoracle_tui.py
+   $ pipenv run textual run ./pyoracle_tui.py
 
